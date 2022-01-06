@@ -262,16 +262,18 @@ namespace Plexer_processor
                             outputfile.WriteLine(line);
                         }
                         string filename = System.IO.Path.GetFileName(dataout);
-                        System.Windows.Application.Current.Dispatcher.Invoke(DispatcherPriority.Normal, (ThreadStart)delegate { 
+                        System.Windows.Application.Current.Dispatcher.Invoke(DispatcherPriority.Normal, (ThreadStart)delegate
+                        {
                             output_box.AppendText(String.Format("Completed processing of {0}", filename) + Environment.NewLine); output_box.ScrollToEnd();
                         });
 
-                        
+
 
                     }
                 });
 
-            System.Windows.Application.Current.Dispatcher.Invoke(DispatcherPriority.Normal, (ThreadStart)delegate {
+            System.Windows.Application.Current.Dispatcher.Invoke(DispatcherPriority.Normal, (ThreadStart)delegate
+            {
                 output_box.AppendText(String.Format("Processing complete") + Environment.NewLine); output_box.ScrollToEnd();
             });
         }
@@ -327,6 +329,51 @@ namespace Plexer_processor
         public void GenerateAveragedData()
         {
             String parsedFileDir = workingDirectory + "\\" + "parsed";
+
+            // Read each .txt file into a class
+            List<Measurement> averaged_measurements_list = new List<Measurement>();
+            foreach (string file in filesToBeAveragedArr)
+            {
+
+                var lines = File.ReadLines(file);
+                Debug.Print(file);
+
+                bool first_line = true;
+
+                string[] read_lines;
+                List<string> read_lines_list = new List<string>();
+
+                foreach (string line in lines)
+                {
+                    if (first_line)
+                    {
+                        first_line = false;
+                    }
+                    else
+                    {
+                        read_lines_list.Add(line);
+                    }
+                }
+
+                read_lines = read_lines_list.ToArray();
+
+                for (int i = 0; i < read_lines.Length; i++)
+                {
+                    Measurement scan = new Measurement();
+
+                    scan.timestamp = DateTime.Parse(read_lines[i].Split("\t")[0]);
+                    scan.jsc = Math.Abs(double.Parse(read_lines[i].Split("\t")[2]));
+                    scan.voc = double.Parse(read_lines[i].Split("\t")[1]);
+                    scan.pOut = Math.Abs(double.Parse(read_lines[i].Split("\t")[4]));
+                    scan.ff = double.Parse(read_lines[i].Split("\t")[3]);
+
+
+                    averaged_measurements_list.Add(scan);
+                }
+            }
+
+            // Run through and take the average of each line in each measurement
+
 
         }
 
