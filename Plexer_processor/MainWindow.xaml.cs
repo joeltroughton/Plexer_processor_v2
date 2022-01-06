@@ -49,6 +49,7 @@ namespace Plexer_processor
 
         string workingDirectory;
         string[] dataFilesArr;
+        string[] filesToBeAveragedArr;
 
         float minimumFF;
         float jscCutOff;
@@ -338,10 +339,7 @@ namespace Plexer_processor
 
             if (open.ShowDialog() == WinForms.DialogResult.OK)
             {
-                foreach (string file in open.FileNames)
-                {
-                    Debug.Print(file);
-                }
+                filesToBeAveragedArr = open.FileNames;
             }
             else
             {
