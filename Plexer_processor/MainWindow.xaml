@@ -1,0 +1,35 @@
+﻿<Window x:Class="Plexer_processor.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:Plexer_processor"
+        mc:Ignorable="d"
+        xmlns:wf="clr-namespace:System.Windows.Forms;assembly=System.Windows.Forms"
+
+
+        Title="MainWindow" Height="450" Width="800">
+    <Grid>
+
+        <Grid.RowDefinitions>
+            <RowDefinition Height="2*"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <TextBox Grid.Row="0" x:Name="output_box" IsReadOnly="True" VerticalScrollBarVisibility="Auto"/>
+
+
+        <StackPanel Grid.Row="1">
+            <Button Height="24" Click="DirectoryButton_Click" Content="Select folder"/>
+
+            <TextBlock Text="Minimum JSC"/>
+            <TextBox x:Name="jsc_min_box"/>
+            <TextBlock Text="Minimum FF"/>
+            <TextBox x:Name="ff_min_box"/>
+
+            <Button Height="24" Click="ParseButton_Click"  Content="Parse"/>
+            <Button Height="24" Click="AverageButton_Click"  Content="Average"/>
+
+        </StackPanel>
+    </Grid>
+</Window>
