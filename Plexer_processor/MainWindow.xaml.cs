@@ -37,6 +37,7 @@ namespace Plexer_processor
             public double pOut { get; set; }
         }
 
+
         public class OutputFile
         {
             public List<DateTime> timestamp = new List<DateTime>();
@@ -45,11 +46,18 @@ namespace Plexer_processor
             public List<double> ff = new List<double>();
             public List<double> pOut = new List<double>();
 
+            public DateTime[] timestampArr;
+            public double[] jscArr;
+            public double[] vocArr;
+            public double[] ffArr;
+            public double[] pOutArr;
         }
 
         string workingDirectory;
         string[] dataFilesArr;
         string[] filesToBeAveragedArr;
+
+        public List<OutputFile> averageablePixelList = new List<OutputFile>();
 
         float minimumFF;
         float jscCutOff;
@@ -331,9 +339,9 @@ namespace Plexer_processor
             String parsedFileDir = workingDirectory + "\\" + "parsed";
 
             // Read each .txt file into a class
-            List<Measurement> averaged_measurements_list = new List<Measurement>();
             foreach (string file in filesToBeAveragedArr)
             {
+                List<Measurement> singlePixelDataOverTime = new List<Measurement>();
 
                 var lines = File.ReadLines(file);
                 Debug.Print(file);
@@ -361,19 +369,115 @@ namespace Plexer_processor
                 {
                     Measurement scan = new Measurement();
 
-                    scan.timestamp = DateTime.Parse(read_lines[i].Split("\t")[0]);
-                    scan.jsc = Math.Abs(double.Parse(read_lines[i].Split("\t")[2]));
-                    scan.voc = double.Parse(read_lines[i].Split("\t")[1]);
-                    scan.pOut = Math.Abs(double.Parse(read_lines[i].Split("\t")[4]));
-                    scan.ff = double.Parse(read_lines[i].Split("\t")[3]);
+                    scan.timestamp = DateTime.Parse(read_lines[i].Split(",")[0]);
+                    scan.jsc = Math.Abs(double.Parse(read_lines[i].Split(",")[2]));
+                    scan.voc = double.Parse(read_lines[i].Split(",")[1]);
+                    scan.pOut = Math.Abs(double.Parse(read_lines[i].Split(",")[4]));
+                    scan.ff = double.Parse(read_lines[i].Split(",")[3]);
 
-
-                    averaged_measurements_list.Add(scan);
+                    singlePixelDataOverTime.Add(scan);
                 }
+
+                List<DateTime> timestamp = new List<DateTime>();
+                List<double> voc = new List<double>();
+                List<double> jsc = new List<double>();
+                List<double> ff = new List<double>();
+                List<double> pce = new List<double>();
+
+                // Add each line of a pixel into the list
+                foreach (Measurement line in singlePixelDataOverTime)
+                {
+                    timestamp.Add(line.timestamp);
+                    voc.Add(line.voc);
+                    jsc.Add(line.jsc);
+                    ff.Add(line.ff);
+                    pce.Add(line.pOut);
+                }
+
+                OutputFile singlePixel = new OutputFile();
+
+                singlePixel.timestampArr = timestamp.ToArray();
+                singlePixel.vocArr = voc.ToArray();
+                singlePixel.jscArr = jsc.ToArray();
+                singlePixel.ffArr = ff.ToArray();
+                singlePixel.pOutArr = pce.ToArray();
+
+                averageablePixelList.Add(singlePixel);
+
             }
 
             // Run through and take the average of each line in each measurement
+            OutputFile[] averagablePixelArr = averageablePixelList.ToArray();
+            OutputFile averagedOutput = new OutputFile();
 
+            int numPixelsToAverage = averagablePixelArr.Length;
+            int lengthOfPixelRecord = averagablePixelArr[0].timestampArr.Length;
+
+            Debug.Print("Number of pixels to average: {0}", numPixelsToAverage);
+
+
+            for (int j = 0; j < lengthOfPixelRecord; j++)
+            {
+                List<double> allVocs = new List<double>();
+                List<double> allJscs = new List<double>();
+                List<double> allFFs = new List<double>();
+                List<double> allPOuts = new List<double>();
+
+                for (int i = 0; i < numPixelsToAverage; i++)
+                {
+                    allVocs.Add(averagablePixelArr[i].vocArr[j]);
+                    allJscs.Add(averagablePixelArr[i].jscArr[j]);
+                    allFFs.Add(averagablePixelArr[i].ffArr[j]);
+                    allPOuts.Add(averagablePixelArr[i].pOutArr[j]);
+
+                }
+
+                double averageVoc = allVocs.Average();
+                double averageJsc = allJscs.Average();
+                double averageFF = allFFs.Average();
+                double averagePOut = allPOuts.Average();
+
+                averagedOutput.timestamp.Add(averagablePixelArr[0].timestampArr[j]);
+                averagedOutput.voc.Add(averageVoc);
+                averagedOutput.jsc.Add(averageJsc);
+                averagedOutput.ff.Add(averageFF);
+                averagedOutput.pOut.Add(averagePOut);
+            }
+
+            String outputFileName = System.IO.Path.GetFileNameWithoutExtension(filesToBeAveragedArr[0]);
+
+            String dataout = parsedFileDir + "\\" + outputFileName + "_average.txt";
+
+
+            using (StreamWriter outputfile = new StreamWriter(dataout))
+            {
+
+                DateTime[] timestampArray = averagedOutput.timestamp.ToArray();
+                double[] vocArray = averagedOutput.voc.ToArray();
+                double[] jscArray = averagedOutput.jsc.ToArray();
+                double[] ffArray = averagedOutput.ff.ToArray();
+                double[] pOutArray = averagedOutput.pOut.ToArray();
+
+                outputfile.WriteLine("Timestamp (h), VOC (V), JSC (mA/cm2), FF, Pout (%)");
+
+                for (int j = 0; j < timestampArray.Length; j++)
+                {
+                    string line = String.Format("{0}, {1:F3}, {2:F3}, {3:F3}, {4:F3}", timestampArray[j].ToString(), vocArray[j], jscArray[j], ffArray[j], pOutArray[j]);
+                    outputfile.WriteLine(line);
+                }
+                string filename = System.IO.Path.GetFileName(dataout);
+                System.Windows.Application.Current.Dispatcher.Invoke(DispatcherPriority.Normal, (ThreadStart)delegate
+                {
+                    output_box.AppendText(String.Format("Completed processing of {0}", filename) + Environment.NewLine); output_box.ScrollToEnd();
+                });
+
+
+
+            }
+
+            Array.Clear(dataFilesArr, 0, dataFilesArr.Length);
+            Array.Clear(filesToBeAveragedArr, 0, filesToBeAveragedArr.Length);
+            averageablePixelList.Clear();
 
         }
 
@@ -384,14 +488,22 @@ namespace Plexer_processor
             open.Multiselect = true;
             open.Title = "Select files to average";
 
+
             if (open.ShowDialog() == WinForms.DialogResult.OK)
             {
                 filesToBeAveragedArr = open.FileNames;
+                foreach (string item in filesToBeAveragedArr)
+                {
+                    Debug.Print(item);
+
+                }
             }
             else
             {
                 return;
             }
+
+            GenerateAveragedData();
         }
     }
 }
