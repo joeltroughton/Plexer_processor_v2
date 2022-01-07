@@ -17,4 +17,9 @@
     </COMReference>
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="ScottPlot" Version="4.1.29" />
+    <PackageReference Include="ScottPlot.WPF" Version="4.1.29" />
+  </ItemGroup>
+
 </Project>

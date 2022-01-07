@@ -57,17 +57,24 @@ namespace Plexer_processor
         string[] dataFilesArr;
         string[] filesToBeAveragedArr;
 
+        string graphedDirectory;
+        string fileOfInterest;
+
         public List<OutputFile> averageablePixelList = new List<OutputFile>();
 
         float minimumFF;
         float jscCutOff;
+
+        int totalLines = 0;
+
+        int intervalMins = 10;
 
         public MainWindow()
         {
             InitializeComponent();
         }
 
-        private void DirectoryButton_Click(object sender, RoutedEventArgs e)
+        private void SelectDirectoryButton_Click(object sender, RoutedEventArgs e)
         {
             var dialog = new System.Windows.Forms.FolderBrowserDialog();
             if (dialog.ShowDialog() == WinForms.DialogResult.OK)
@@ -75,13 +82,19 @@ namespace Plexer_processor
                 workingDirectory = dialog.SelectedPath;
                 dataFilesArr = System.IO.Directory.GetFiles(workingDirectory, "*.txt");
 
-                output_box.AppendText(String.Format("Selected directory: {0}", workingDirectory) + Environment.NewLine);
-                output_box.AppendText(String.Format("Found files:") + Environment.NewLine);
+                output_box.AppendText(String.Format("\nSelected directory: {0}", workingDirectory) + Environment.NewLine);
+                output_box.AppendText(String.Format("\nFound files:") + Environment.NewLine);
                 output_box.ScrollToEnd();
                 foreach (string file in dataFilesArr)
                 {
                     string filename = System.IO.Path.GetFileName(file);
                     output_box.AppendText(filename + Environment.NewLine);
+                }
+
+                if (workingDirectory.Contains("parsed"))
+                {
+                    output_box.AppendText("\nSelected directory appears to contain already-processed data. Check before continuing!" + Environment.NewLine);
+
                 }
 
             }
@@ -96,10 +109,12 @@ namespace Plexer_processor
         {
             minimumFF = float.Parse(ff_min_box.Text);
             jscCutOff = float.Parse(jsc_min_box.Text);
+            intervalMins = int.Parse(interval_min_box.Text);
 
-            output_box.AppendText(String.Format("Beginning processing") + Environment.NewLine);
-            output_box.AppendText(String.Format("Minimim JSC for legitimate FF values: {0}", jscCutOff) + Environment.NewLine);
-            output_box.AppendText(String.Format("Minimim legitimate FF value: {0}", minimumFF) + Environment.NewLine);
+            output_box.AppendText(String.Format("\nBeginning processing") + Environment.NewLine);
+            output_box.AppendText(String.Format("\nOutput interval: {0} mins", intervalMins) + Environment.NewLine);
+            output_box.AppendText(String.Format("\nMinimim JSC for legitimate FF values: {0}", jscCutOff) + Environment.NewLine);
+            output_box.AppendText(String.Format("\nMinimim legitimate FF value: {0}", minimumFF) + Environment.NewLine);
             output_box.ScrollToEnd();
 
             Dispatcher.Invoke(async () =>
@@ -119,6 +134,9 @@ namespace Plexer_processor
 
         private async Task BeginParse()
         {
+            totalLines = 0;
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+
             List<string> list_files = new List<string>(dataFilesArr);
 
             Parallel.ForEach(
@@ -150,6 +168,8 @@ namespace Plexer_processor
 
                     for (int i = 0; i < read_lines.Length; i++)
                     {
+                        totalLines++;
+
                         Measurement scan = new Measurement();
 
                         scan.timestamp = DateTime.Parse(read_lines[i].Split("\t")[0]);
@@ -190,19 +210,19 @@ namespace Plexer_processor
                     //}
 
                     //DateTime startTime = new DateTime(2021, 11, 27, 00, 00, 00);
-                    DateTime rounded = RoundUp(measurementsArray[1].timestamp, TimeSpan.FromMinutes(10));
+                    DateTime rounded = RoundUp(measurementsArray[1].timestamp, TimeSpan.FromMinutes(intervalMins));
                     DateTime startTime = rounded;
                     DateTime endTime = RoundUp(measurementsArray[measurementsArray.Length - 1].timestamp, TimeSpan.FromMinutes(10)); ;
                     TimeSpan experimentDuration = endTime.Subtract(startTime);
                     int experimentDurationSecs = (int)experimentDuration.TotalSeconds;
-                    int experimentDurationTensOfMinutes = experimentDurationSecs / 600;
+                    int experimentDurationTensOfMinutes = experimentDurationSecs / (intervalMins * 60);
 
 
                     OutputFile output = new OutputFile();
 
                     for (int i = 0; i < experimentDurationTensOfMinutes - 1; i++)
                     {
-                        DateTime requestedTime = startTime.AddMinutes(10 * i);
+                        DateTime requestedTime = startTime.AddMinutes(intervalMins * i);
                         DateTime closest = findClosestTimestamp(dateArr, requestedTime);
                         int closest_index = findIndexOfExactTimestamp(measurementsArray, closest);
 
@@ -280,10 +300,33 @@ namespace Plexer_processor
                     }
                 });
 
+            watch.Stop();
+
             System.Windows.Application.Current.Dispatcher.Invoke(DispatcherPriority.Normal, (ThreadStart)delegate
             {
-                output_box.AppendText(String.Format("Processing complete") + Environment.NewLine); output_box.ScrollToEnd();
+                output_box.AppendText(String.Format("\nProcessesed {0} lines in {1} ms", totalLines, watch.ElapsedMilliseconds) + Environment.NewLine); output_box.ScrollToEnd();
             });
+
+            // Now update the graph combobox
+            string parsedDirectory = workingDirectory + "\\" + "parsed";
+            graphedDirectory = parsedDirectory;
+            string[] dataFileList = System.IO.Directory.GetFiles(parsedDirectory, "*.txt");
+            Debug.Print("new combobox dir: {0}", parsedDirectory);
+            // Strip out the path for now
+            for (int i = 0; i < dataFileList.Length; i++)
+            {
+                dataFileList[i] = dataFileList[i].Substring(dataFileList[i].LastIndexOf('\\') + 1);
+
+            }
+
+
+            System.Windows.Application.Current.Dispatcher.Invoke(DispatcherPriority.Normal, (ThreadStart)delegate
+            {
+                graphSelectCombobox.ItemsSource = dataFileList;
+                graphSelectCombobox.SelectedIndex = 0;
+            });
+
+
         }
 
 
@@ -336,6 +379,8 @@ namespace Plexer_processor
 
         public void GenerateAveragedData()
         {
+            bool processedOK = true;
+
             String parsedFileDir = workingDirectory + "\\" + "parsed";
 
             // Read each .txt file into a class
@@ -415,67 +460,82 @@ namespace Plexer_processor
 
             Debug.Print("Number of pixels to average: {0}", numPixelsToAverage);
 
-
-            for (int j = 0; j < lengthOfPixelRecord; j++)
+            try
             {
-                List<double> allVocs = new List<double>();
-                List<double> allJscs = new List<double>();
-                List<double> allFFs = new List<double>();
-                List<double> allPOuts = new List<double>();
-
-                for (int i = 0; i < numPixelsToAverage; i++)
+                for (int j = 0; j < lengthOfPixelRecord; j++)
                 {
-                    allVocs.Add(averagablePixelArr[i].vocArr[j]);
-                    allJscs.Add(averagablePixelArr[i].jscArr[j]);
-                    allFFs.Add(averagablePixelArr[i].ffArr[j]);
-                    allPOuts.Add(averagablePixelArr[i].pOutArr[j]);
+                    List<double> allVocs = new List<double>();
+                    List<double> allJscs = new List<double>();
+                    List<double> allFFs = new List<double>();
+                    List<double> allPOuts = new List<double>();
 
+                    for (int i = 0; i < numPixelsToAverage; i++)
+                    {
+                        allVocs.Add(averagablePixelArr[i].vocArr[j]);
+                        allJscs.Add(averagablePixelArr[i].jscArr[j]);
+                        allFFs.Add(averagablePixelArr[i].ffArr[j]);
+                        allPOuts.Add(averagablePixelArr[i].pOutArr[j]);
+
+                    }
+
+                    double averageVoc = allVocs.Average();
+                    double averageJsc = allJscs.Average();
+                    double averageFF = allFFs.Average();
+                    double averagePOut = allPOuts.Average();
+
+                    averagedOutput.timestamp.Add(averagablePixelArr[0].timestampArr[j]);
+                    averagedOutput.voc.Add(averageVoc);
+                    averagedOutput.jsc.Add(averageJsc);
+                    averagedOutput.ff.Add(averageFF);
+                    averagedOutput.pOut.Add(averagePOut);
                 }
-
-                double averageVoc = allVocs.Average();
-                double averageJsc = allJscs.Average();
-                double averageFF = allFFs.Average();
-                double averagePOut = allPOuts.Average();
-
-                averagedOutput.timestamp.Add(averagablePixelArr[0].timestampArr[j]);
-                averagedOutput.voc.Add(averageVoc);
-                averagedOutput.jsc.Add(averageJsc);
-                averagedOutput.ff.Add(averageFF);
-                averagedOutput.pOut.Add(averagePOut);
             }
-
-            String outputFileName = System.IO.Path.GetFileNameWithoutExtension(filesToBeAveragedArr[0]);
-
-            String dataout = parsedFileDir + "\\" + outputFileName + "_average.txt";
-
-
-            using (StreamWriter outputfile = new StreamWriter(dataout))
+            catch (Exception)
             {
-
-                DateTime[] timestampArray = averagedOutput.timestamp.ToArray();
-                double[] vocArray = averagedOutput.voc.ToArray();
-                double[] jscArray = averagedOutput.jsc.ToArray();
-                double[] ffArray = averagedOutput.ff.ToArray();
-                double[] pOutArray = averagedOutput.pOut.ToArray();
-
-                outputfile.WriteLine("Timestamp (h), VOC (V), JSC (mA/cm2), FF, Pout (%)");
-
-                for (int j = 0; j < timestampArray.Length; j++)
-                {
-                    string line = String.Format("{0}, {1:F3}, {2:F3}, {3:F3}, {4:F3}", timestampArray[j].ToString(), vocArray[j], jscArray[j], ffArray[j], pOutArray[j]);
-                    outputfile.WriteLine(line);
-                }
-                string filename = System.IO.Path.GetFileName(dataout);
                 System.Windows.Application.Current.Dispatcher.Invoke(DispatcherPriority.Normal, (ThreadStart)delegate
                 {
-                    output_box.AppendText(String.Format("Completed processing of {0}", filename) + Environment.NewLine); output_box.ScrollToEnd();
+                    output_box.AppendText(String.Format("\nERROR: The selected files to be averaged have different start times.") + Environment.NewLine); output_box.ScrollToEnd();
                 });
-
-
-
+                processedOK = false;
             }
 
-            Array.Clear(dataFilesArr, 0, dataFilesArr.Length);
+            if (processedOK)
+            {
+                String outputFileName = System.IO.Path.GetFileNameWithoutExtension(filesToBeAveragedArr[0]);
+
+                String dataout = parsedFileDir + "\\" + outputFileName + "_average.txt";
+
+
+                using (StreamWriter outputfile = new StreamWriter(dataout))
+                {
+
+                    DateTime[] timestampArray = averagedOutput.timestamp.ToArray();
+                    double[] vocArray = averagedOutput.voc.ToArray();
+                    double[] jscArray = averagedOutput.jsc.ToArray();
+                    double[] ffArray = averagedOutput.ff.ToArray();
+                    double[] pOutArray = averagedOutput.pOut.ToArray();
+
+                    outputfile.WriteLine("Timestamp (h), VOC (V), JSC (mA/cm2), FF, Pout (%)");
+
+                    for (int j = 0; j < timestampArray.Length; j++)
+                    {
+                        string line = String.Format("{0}, {1:F3}, {2:F3}, {3:F3}, {4:F3}", timestampArray[j].ToString(), vocArray[j], jscArray[j], ffArray[j], pOutArray[j]);
+                        outputfile.WriteLine(line);
+                    }
+                    string filename = System.IO.Path.GetFileName(dataout);
+                    System.Windows.Application.Current.Dispatcher.Invoke(DispatcherPriority.Normal, (ThreadStart)delegate
+                    {
+                        output_box.AppendText(String.Format("Completed processing of {0}", filename) + Environment.NewLine); output_box.ScrollToEnd();
+                    });
+
+
+
+                }
+            }
+
+
+
+            // Array.Clear(dataFilesArr, 0, dataFilesArr.Length);
             Array.Clear(filesToBeAveragedArr, 0, filesToBeAveragedArr.Length);
             averageablePixelList.Clear();
 
@@ -504,6 +564,192 @@ namespace Plexer_processor
             }
 
             GenerateAveragedData();
+        }
+
+        private void graphButton_Click(object sender, RoutedEventArgs e)
+        {
+            string[] dataFileList;
+
+
+            var dialog = new System.Windows.Forms.FolderBrowserDialog();
+            if (dialog.ShowDialog() == WinForms.DialogResult.OK)
+            {
+                graphedDirectory = dialog.SelectedPath;
+                dataFileList = System.IO.Directory.GetFiles(graphedDirectory, "*.txt");
+
+                // Strip out the path for now
+                for (int i = 0; i < dataFileList.Length; i++)
+                {
+                    dataFileList[i] = dataFileList[i].Substring(dataFileList[i].LastIndexOf('\\') + 1);
+                }
+            }
+            else
+            {
+                return;
+            }
+
+            graphSelectCombobox.ItemsSource = dataFileList;
+            graphSelectCombobox.SelectedIndex = 0;
+        }
+
+        private void graphSelectCombobox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            fileOfInterest = graphedDirectory + "\\" + graphSelectCombobox.SelectedItem.ToString();
+            Debug.Print("Selection changed: {0}", fileOfInterest);
+            generateGraphs();
+        }
+
+        public void updateGraphCombobox()
+        {
+        }
+
+        private void generateGraphs()
+        {
+            double[] dtimeArray;
+            double[] dvocArray;
+            double[] djscArray;
+            double[] dffArray;
+            double[] dpOutArray;
+
+            List<Measurement> singlePixelDataOverTime = new List<Measurement>();
+
+            var lines = File.ReadLines(fileOfInterest);
+
+            bool first_line = true;
+            bool preParsedFile = false;
+            string[] read_lines;
+            List<string> read_lines_list = new List<string>();
+
+            foreach (string line in lines)
+            {
+                if (first_line)
+                {
+                    first_line = false;
+                    if (line.Contains("UNIX_Timestamp"))
+                    {
+                        Debug.Print("OLD");
+                        preParsedFile = true;
+                    }
+                    else
+                    {
+                        Debug.Print("NEW");
+                        preParsedFile = false;
+                    }
+                }
+                else
+                {
+                    read_lines_list.Add(line);
+                }
+            }
+
+            read_lines = read_lines_list.ToArray();
+
+            for (int i = 0; i < read_lines.Length; i++)
+            {
+                Measurement scan = new Measurement();
+
+                if (preParsedFile)
+                {
+                    scan.timestamp = DateTime.Parse(read_lines[i].Split("\t")[0]);
+                    scan.jsc = Math.Abs(double.Parse(read_lines[i].Split("\t")[2]));
+                    scan.voc = double.Parse(read_lines[i].Split("\t")[3]);
+                    scan.pOut = Math.Abs(double.Parse(read_lines[i].Split("\t")[5]));
+                    scan.ff = double.Parse(read_lines[i].Split("\t")[4]);
+                }
+                else
+                {
+                    scan.timestamp = DateTime.Parse(read_lines[i].Split(",")[0]);
+                    scan.jsc = Math.Abs(double.Parse(read_lines[i].Split(",")[2]));
+                    scan.voc = double.Parse(read_lines[i].Split(",")[1]);
+                    scan.pOut = Math.Abs(double.Parse(read_lines[i].Split(",")[4]));
+                    scan.ff = double.Parse(read_lines[i].Split(",")[3]);
+                }
+
+
+                singlePixelDataOverTime.Add(scan);
+            }
+
+            List<DateTime> timestamp = new List<DateTime>();
+            List<double> voc = new List<double>();
+            List<double> jsc = new List<double>();
+            List<double> ff = new List<double>();
+            List<double> pce = new List<double>();
+
+            // Add each line of a pixel into the list
+            foreach (Measurement line in singlePixelDataOverTime)
+            {
+                timestamp.Add(line.timestamp);
+                voc.Add(line.voc);
+                jsc.Add(line.jsc);
+                ff.Add(line.ff);
+                pce.Add(line.pOut);
+            }
+
+            OutputFile singlePixel = new OutputFile();
+
+            singlePixel.timestampArr = timestamp.ToArray();
+            singlePixel.vocArr = voc.ToArray();
+            singlePixel.jscArr = jsc.ToArray();
+            singlePixel.ffArr = ff.ToArray();
+            singlePixel.pOutArr = pce.ToArray();
+
+            double[] datesForPlotting = singlePixel.timestampArr.Select(x => x.ToOADate()).ToArray();
+
+            // Clear previous graphs
+            vocPlot.Plot.Clear();
+            jscPlot.Plot.Clear();
+            ffPlot.Plot.Clear();
+            pOutPlot.Plot.Clear();
+
+
+            // Set up plots
+            vocPlot.Plot.AddScatter(datesForPlotting, singlePixel.vocArr, color: System.Drawing.Color.CornflowerBlue, lineWidth: 2, markerSize: 0);
+            jscPlot.Plot.AddScatter(datesForPlotting, singlePixel.jscArr, color: System.Drawing.Color.CornflowerBlue, lineWidth: 2, markerSize: 0);
+            ffPlot.Plot.AddScatter(datesForPlotting, singlePixel.ffArr, color: System.Drawing.Color.CornflowerBlue, lineWidth: 2, markerSize: 0);
+            pOutPlot.Plot.AddScatter(datesForPlotting, singlePixel.pOutArr, color: System.Drawing.Color.CornflowerBlue, lineWidth: 2, markerSize: 0);
+
+            // Configure axes
+            vocPlot.Plot.XAxis.DateTimeFormat(true);
+            jscPlot.Plot.XAxis.DateTimeFormat(true);
+            ffPlot.Plot.XAxis.DateTimeFormat(true);
+            pOutPlot.Plot.XAxis.DateTimeFormat(true);
+
+            vocPlot.Plot.SetAxisLimits(null, null, 0, null);
+            jscPlot.Plot.SetAxisLimits(null, null, 0, null);
+            ffPlot.Plot.SetAxisLimits(null, null, 0, null);
+            pOutPlot.Plot.SetAxisLimits(null, null, 0, null);
+
+            //vocPlot.Plot.XAxis.DateTimeFormat(true);
+            //jscPlot.Plot.XAxis.DateTimeFormat(true);
+            //ffPlot.Plot.XAxis.DateTimeFormat(true);
+
+            //vocPlot.Plot.XAxis.Ticks(false);
+            //jscPlot.Plot.XAxis.Ticks(false);
+            //ffPlot.Plot.XAxis.Ticks(false);
+
+            vocPlot.Plot.YAxis.TickLabelFormat("F1", dateTimeFormat: false);
+            jscPlot.Plot.YAxis.TickLabelFormat("F0", dateTimeFormat: false);
+            ffPlot.Plot.YAxis.TickLabelFormat("F1", dateTimeFormat: false);
+            pOutPlot.Plot.YAxis.TickLabelFormat("F1", dateTimeFormat: false);
+
+            vocPlot.Plot.YLabel("Voc (V)");
+            jscPlot.Plot.YLabel("Jsc (mA/cm2)");
+            ffPlot.Plot.YLabel("FF");
+            pOutPlot.Plot.YLabel("POut (mW/cm2)");
+
+
+            vocPlot.Refresh();
+            jscPlot.Refresh();
+            ffPlot.Refresh();
+            pOutPlot.Refresh();
+        }
+
+        private void OpenDirectoryButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (Directory.Exists(workingDirectory))
+            {
+                Process.Start("explorer.exe", workingDirectory);
+            }
         }
     }
 }

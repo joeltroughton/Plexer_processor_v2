@@ -8,28 +8,83 @@
         xmlns:wf="clr-namespace:System.Windows.Forms;assembly=System.Windows.Forms"
 
 
-        Title="MainWindow" Height="450" Width="800">
+        Title="MainWindow" Height="730" Width="800">
+
+    <Border Padding="5">
+        
+
     <Grid>
 
-        <Grid.RowDefinitions>
-            <RowDefinition Height="2*"/>
-            <RowDefinition Height="*"/>
-        </Grid.RowDefinitions>
-
-        <TextBox Grid.Row="0" x:Name="output_box" IsReadOnly="True" VerticalScrollBarVisibility="Auto"/>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="250"/>
+            <ColumnDefinition Width="3*"/>
+        </Grid.ColumnDefinitions>
 
 
-        <StackPanel Grid.Row="1">
-            <Button Height="24" Click="DirectoryButton_Click" Content="Select folder"/>
 
-            <TextBlock Text="Minimum JSC"/>
-            <TextBox x:Name="jsc_min_box"/>
-            <TextBlock Text="Minimum FF"/>
-            <TextBox x:Name="ff_min_box"/>
 
-            <Button Height="24" Click="ParseButton_Click"  Content="Parse"/>
-            <Button Height="24" Click="AverageButton_Click"  Content="Average"/>
+        
+        <StackPanel Grid.Column="0">
+                <Border Padding="2">
+                    
+                </Border>
+            <TextBlock Text="Data Processor" FontWeight="Bold" FontSize="18"/>
+
+            <TextBlock Text="Status messages"/>
+            <TextBox Grid.Row="0" Grid.Column="0" Height="250" x:Name="output_box" IsReadOnly="True" VerticalScrollBarVisibility="Auto" TextWrapping="Wrap"/>
+
+            <Grid Margin="0,5,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                
+                <Button Height="24" Grid.Column="0" Click="SelectDirectoryButton_Click" Content="Select folder" />
+                <Button Height="24" Grid.Column="1" Click="OpenDirectoryButton_Click"  Content="Open folder" />
+            </Grid>
+
+            <Grid Margin="0,5,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="5*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <TextBlock Text="Ouput timestep (mins)" Grid.Column="0" Grid.Row="0"/>
+                <TextBox x:Name="interval_min_box" Grid.Column="1" Grid.Row="0" Text="10"/>
+
+                <TextBlock Text="Min. Jsc before FF is cut (mA/cm2)" Grid.Column="0" Grid.Row="1" ToolTip="At low light levels, fill factor becomes difficult to calculate, leading to nonsense FF data at night. &#x0a;When JSC is below the given threshold, FF data will be deleted"/>
+                <TextBox x:Name="jsc_min_box" Grid.Column="1" Grid.Row="1" Text="0.5"/>
+                <TextBlock Text="Min. FF allowed (dec.)" Grid.Column="0" Grid.Row="2" ToolTip="Fill factors below the set level will be deleted"/>
+                <TextBox x:Name="ff_min_box" Grid.Column="1" Grid.Row="2" Text="0.0"/>
+            </Grid>
+
+                <Button Margin="0,5,0,0" Height="24" Click="ParseButton_Click"  Content="Clean up data"/>
+
+            <TextBlock Margin="0,5,0,0" Text="Data averager"/>
+            <Button Height="24" Click="AverageButton_Click"  Content="Select files to average"/>
+
+            <TextBlock Margin="0,5,0,0" Text="Graph preview" FontWeight="Bold" FontSize="18"/>
+            <Button Margin="0,5,0,0" x:Name="graphButton" Click="graphButton_Click" Height="24" Content="Select folder"/>
+            <ComboBox Margin="0,5,0,0" x:Name="graphSelectCombobox" SelectionChanged="graphSelectCombobox_SelectionChanged"  />
+            
+        </StackPanel>
+
+        <StackPanel Grid.Column="1">
+            <WpfPlot Name="vocPlot"  Height="200" Margin="0,0,0,-30"/>
+            <WpfPlot Name="jscPlot"  Height="200" Margin="0,0,0,-30"/>
+            <WpfPlot Name="ffPlot"  Height="200" Margin="0,0,0,-30"/>
+            <WpfPlot Name="pOutPlot"  Height="200" Margin="0,0,0,-20"/>
+
 
         </StackPanel>
+
     </Grid>
+    </Border>
+
 </Window>
