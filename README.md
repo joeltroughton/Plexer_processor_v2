@@ -1,6 +1,10 @@
 # Plexer processor
 A handy app to process and visualise data from OMEGALab Plexer multichannel PV hardware.
 
+<p align="center">
+  <img src="https://github.com/joeltroughton/Plexer_processor_v2/raw/master/plexerprocessor.png" width="600" title="Plexer Processor">
+</p>
+
 ## Processing
 - Interpolate JV data over set timespans to generate easy-to-visualise graphs
   - Instead of entries at 16:58:05 and 17:09:21, data can be linearly interpolated to give entries at 17:00:00 and 17:10:00
