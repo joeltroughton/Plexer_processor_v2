@@ -22,7 +22,7 @@
 
             <Grid Grid.Column="0">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="550"/>
+                    <RowDefinition Height="570"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
 
@@ -71,7 +71,7 @@
                     <TextBlock Margin="0,5,0,0" Text="Data averager"/>
                     <Button x:Name="averageButton" Height="24" Click="AverageButton_Click"  Content="Select files to average" IsEnabled="False"/>
 
-                    <TextBlock Margin="0,5,0,0" Text="Graph preview" FontWeight="Bold" FontSize="18"/>
+                    <TextBlock Margin="0,25,0,0" Text="Graph preview" FontWeight="Bold" FontSize="18"/>
                     <Button Margin="0,5,0,0" x:Name="graphButton" Click="graphButton_Click" Height="24" Content="Select folder"/>
                     <ComboBox Margin="0,5,0,0" x:Name="graphSelectCombobox" SelectionChanged="graphSelectCombobox_SelectionChanged"  />
                 </StackPanel>
