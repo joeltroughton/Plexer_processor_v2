@@ -18,6 +18,9 @@ using WinForms = System.Windows.Forms;
 using System.IO;
 using System.Windows.Threading;
 using System.Threading;
+using ScottPlot;
+
+//[assembly: DisableDpiAwareness]
 
 namespace Plexer_processor
 {
@@ -72,6 +75,7 @@ namespace Plexer_processor
         public MainWindow()
         {
             InitializeComponent();
+            initGraphs();
         }
 
         private void SelectDirectoryButton_Click(object sender, RoutedEventArgs e)
@@ -96,6 +100,9 @@ namespace Plexer_processor
                     output_box.AppendText("\nSelected directory appears to contain already-processed data. Check before continuing!" + Environment.NewLine);
 
                 }
+
+                parseButton.IsEnabled = true;
+                averageButton.IsEnabled = true;
 
             }
             else
@@ -307,24 +314,8 @@ namespace Plexer_processor
                 output_box.AppendText(String.Format("\nProcessesed {0} lines in {1} ms", totalLines, watch.ElapsedMilliseconds) + Environment.NewLine); output_box.ScrollToEnd();
             });
 
-            // Now update the graph combobox
-            string parsedDirectory = workingDirectory + "\\" + "parsed";
-            graphedDirectory = parsedDirectory;
-            string[] dataFileList = System.IO.Directory.GetFiles(parsedDirectory, "*.txt");
-            Debug.Print("new combobox dir: {0}", parsedDirectory);
-            // Strip out the path for now
-            for (int i = 0; i < dataFileList.Length; i++)
-            {
-                dataFileList[i] = dataFileList[i].Substring(dataFileList[i].LastIndexOf('\\') + 1);
+            updateGraphList();
 
-            }
-
-
-            System.Windows.Application.Current.Dispatcher.Invoke(DispatcherPriority.Normal, (ThreadStart)delegate
-            {
-                graphSelectCombobox.ItemsSource = dataFileList;
-                graphSelectCombobox.SelectedIndex = 0;
-            });
 
 
         }
@@ -462,7 +453,7 @@ namespace Plexer_processor
 
             try
             {
-                for (int j = 0; j < lengthOfPixelRecord; j++)
+                for (int j = 0; j < lengthOfPixelRecord - 1; j++)
                 {
                     List<double> allVocs = new List<double>();
                     List<double> allJscs = new List<double>();
@@ -564,6 +555,29 @@ namespace Plexer_processor
             }
 
             GenerateAveragedData();
+            updateGraphList();
+        }
+
+        public void updateGraphList()
+        {
+            // Now update the graph combobox
+            string parsedDirectory = workingDirectory + "\\" + "parsed";
+            graphedDirectory = parsedDirectory;
+            string[] dataFileList = System.IO.Directory.GetFiles(parsedDirectory, "*.txt");
+            Debug.Print("new combobox dir: {0}", parsedDirectory);
+            // Strip out the path for now
+            for (int i = 0; i < dataFileList.Length; i++)
+            {
+                dataFileList[i] = dataFileList[i].Substring(dataFileList[i].LastIndexOf('\\') + 1);
+
+            }
+
+
+            System.Windows.Application.Current.Dispatcher.Invoke(DispatcherPriority.Normal, (ThreadStart)delegate
+            {
+                graphSelectCombobox.ItemsSource = dataFileList;
+                graphSelectCombobox.SelectedIndex = 0;
+            });
         }
 
         private void graphButton_Click(object sender, RoutedEventArgs e)
@@ -605,12 +619,6 @@ namespace Plexer_processor
 
         private void generateGraphs()
         {
-            double[] dtimeArray;
-            double[] dvocArray;
-            double[] djscArray;
-            double[] dffArray;
-            double[] dpOutArray;
-
             List<Measurement> singlePixelDataOverTime = new List<Measurement>();
 
             var lines = File.ReadLines(fileOfInterest);
@@ -708,6 +716,11 @@ namespace Plexer_processor
             ffPlot.Plot.AddScatter(datesForPlotting, singlePixel.ffArr, color: System.Drawing.Color.CornflowerBlue, lineWidth: 2, markerSize: 0);
             pOutPlot.Plot.AddScatter(datesForPlotting, singlePixel.pOutArr, color: System.Drawing.Color.CornflowerBlue, lineWidth: 2, markerSize: 0);
 
+            //vocPlot.Plot.AddFill(datesForPlotting, singlePixel.vocArr, color: System.Drawing.Color.CornflowerBlue);
+            //jscPlot.Plot.AddFill(datesForPlotting, singlePixel.jscArr, color: System.Drawing.Color.CornflowerBlue);
+            //ffPlot.Plot.AddFill(datesForPlotting, singlePixel.ffArr, color: System.Drawing.Color.CornflowerBlue);
+            //pOutPlot.Plot.AddFill(datesForPlotting, singlePixel.pOutArr, color: System.Drawing.Color.CornflowerBlue);
+
             // Configure axes
             vocPlot.Plot.XAxis.DateTimeFormat(true);
             jscPlot.Plot.XAxis.DateTimeFormat(true);
@@ -750,6 +763,72 @@ namespace Plexer_processor
             {
                 Process.Start("explorer.exe", workingDirectory);
             }
+        }
+
+        public void initGraphs()
+        {
+            double[] dtimeArray;
+            double[] dvocArray;
+            double[] djscArray;
+            double[] dffArray;
+            double[] dpOutArray;
+
+            DateTime[] myDates = new DateTime[100];
+            for (int i = 0; i < myDates.Length; i++)
+            {
+                myDates[i] = new DateTime(2022, 1, 1).AddHours(i*10);
+
+            }
+
+            dtimeArray = myDates.Select(x => x.ToOADate()).ToArray();
+            dvocArray = DataGen.RandomWalk(myDates.Length, 0.01, 1);
+            djscArray = DataGen.RandomWalk(myDates.Length, 0.01, 25);
+            dffArray = DataGen.RandomWalk(myDates.Length, 0.001, 0.7);
+            dpOutArray = new double[dtimeArray.Length];
+
+            for (int i = 0; i < dtimeArray.Length; i++)
+            {
+                dpOutArray[i] = dvocArray[i] * djscArray[i] * dffArray[i];
+            }
+
+            // Clear previous graphs
+            vocPlot.Plot.Clear();
+            jscPlot.Plot.Clear();
+            ffPlot.Plot.Clear();
+            pOutPlot.Plot.Clear();
+
+            // Configure axes
+            vocPlot.Plot.XAxis.DateTimeFormat(true);
+            jscPlot.Plot.XAxis.DateTimeFormat(true);
+            ffPlot.Plot.XAxis.DateTimeFormat(true);
+            pOutPlot.Plot.XAxis.DateTimeFormat(true);
+
+            // Set up plots
+            vocPlot.Plot.AddScatter(dtimeArray, dvocArray, color: System.Drawing.Color.CornflowerBlue, lineWidth: 2, markerSize: 0);
+            jscPlot.Plot.AddScatter(dtimeArray, djscArray, color: System.Drawing.Color.CornflowerBlue, lineWidth: 2, markerSize: 0);
+            ffPlot.Plot.AddScatter(dtimeArray, dffArray, color: System.Drawing.Color.CornflowerBlue, lineWidth: 2, markerSize: 0);
+            pOutPlot.Plot.AddScatter(dtimeArray, dpOutArray, color: System.Drawing.Color.CornflowerBlue, lineWidth: 2, markerSize: 0);
+
+            //vocPlot.Plot.AddFill(dtimeArray, dvocArray, color: System.Drawing.Color.CornflowerBlue);
+            //jscPlot.Plot.AddFill(dtimeArray, djscArray, color: System.Drawing.Color.CornflowerBlue);
+            //ffPlot.Plot.AddFill(dtimeArray, dffArray, color: System.Drawing.Color.CornflowerBlue);
+            //pOutPlot.Plot.AddFill(dtimeArray, dpOutArray, color: System.Drawing.Color.CornflowerBlue);
+ 
+
+            vocPlot.Plot.YAxis.TickLabelFormat("F1", dateTimeFormat: false);
+            jscPlot.Plot.YAxis.TickLabelFormat("F0", dateTimeFormat: false);
+            ffPlot.Plot.YAxis.TickLabelFormat("F1", dateTimeFormat: false);
+            pOutPlot.Plot.YAxis.TickLabelFormat("F1", dateTimeFormat: false);
+
+            vocPlot.Plot.YLabel("Voc (V)");
+            jscPlot.Plot.YLabel("Jsc (mA/cm2)");
+            ffPlot.Plot.YLabel("FF");
+            pOutPlot.Plot.YLabel("POut (mW/cm2)");
+
+            vocPlot.Refresh();
+            jscPlot.Refresh();
+            ffPlot.Refresh();
+            pOutPlot.Refresh();
         }
     }
 }
