@@ -176,28 +176,41 @@ namespace Plexer_processor
                     for (int i = 0; i < read_lines.Length; i++)
                     {
                         totalLines++;
-
+                        //Debug.Print("Line: {0}", i);
                         Measurement scan = new Measurement();
 
-                        scan.timestamp = DateTime.Parse(read_lines[i].Split("\t")[0]);
-                        scan.unixEpoch = int.Parse(read_lines[i].Split("\t")[1]);
-                        scan.jsc = Math.Abs(double.Parse(read_lines[i].Split("\t")[2]));
-                        scan.voc = double.Parse(read_lines[i].Split("\t")[3]);
-                        scan.pOut = Math.Abs(double.Parse(read_lines[i].Split("\t")[5]));
-
-                        scan.ff = double.Parse(read_lines[i].Split("\t")[4]);
-
-                        if ((scan.jsc < jscCutOff) || (scan.ff < minimumFF) || (scan.ff > 1))
+                        try
                         {
-                            scan.ff = 0;
+                            //if (read_lines[i].Contains("inf"))
+                            //{
+                            //    read_lines[i] = read_lines[i].Replace("inf", "0");
+                            //}
+
+                            scan.timestamp = DateTime.Parse(read_lines[i].Split("\t")[0]);
+                            scan.unixEpoch = int.Parse(read_lines[i].Split("\t")[1]);
+                            scan.jsc = Math.Abs(double.Parse(read_lines[i].Split("\t")[2]));
+                            scan.voc = double.Parse(read_lines[i].Split("\t")[3]);
+                            scan.pOut = Math.Abs(double.Parse(read_lines[i].Split("\t")[5]));
+                            scan.ff = double.Parse(read_lines[i].Split("\t")[4]);
+
+
+                            if ((scan.jsc < jscCutOff) || (scan.ff < minimumFF) || (scan.ff > 1))
+                            {
+                                scan.ff = 0;
+                            }
+
+                            if (scan.voc < 0)
+                            {
+                                scan.voc = 0;
+                            }
+
+                            measurements_list.Add(scan);
+                        }
+                        catch
+                        {
+                            Debug.Print("error");
                         }
 
-                        if (scan.voc < 0)
-                        {
-                            scan.voc = 0;
-                        }
-
-                        measurements_list.Add(scan);
                     }
 
                     List<DateTime> theDates = new List<DateTime>();
@@ -776,7 +789,7 @@ namespace Plexer_processor
             DateTime[] myDates = new DateTime[100];
             for (int i = 0; i < myDates.Length; i++)
             {
-                myDates[i] = new DateTime(2022, 1, 1).AddHours(i*10);
+                myDates[i] = new DateTime(2022, 1, 1).AddHours(i * 10);
 
             }
 
@@ -813,7 +826,7 @@ namespace Plexer_processor
             //jscPlot.Plot.AddFill(dtimeArray, djscArray, color: System.Drawing.Color.CornflowerBlue);
             //ffPlot.Plot.AddFill(dtimeArray, dffArray, color: System.Drawing.Color.CornflowerBlue);
             //pOutPlot.Plot.AddFill(dtimeArray, dpOutArray, color: System.Drawing.Color.CornflowerBlue);
- 
+
 
             vocPlot.Plot.YAxis.TickLabelFormat("F1", dateTimeFormat: false);
             jscPlot.Plot.YAxis.TickLabelFormat("F0", dateTimeFormat: false);
