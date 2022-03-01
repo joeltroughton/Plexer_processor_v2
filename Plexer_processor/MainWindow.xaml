@@ -55,6 +55,7 @@
                             <RowDefinition Height="*"/>
                             <RowDefinition Height="*"/>
                             <RowDefinition Height="*"/>
+                            <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
 
                         <TextBlock Text="Ouput timestep (mins)" Grid.Column="0" Grid.Row="0"/>
@@ -64,6 +65,9 @@
                         <TextBox x:Name="jsc_min_box" Grid.Column="1" Grid.Row="1" Text="0.5"/>
                         <TextBlock Text="Min. FF allowed (dec.)" Grid.Column="0" Grid.Row="2" ToolTip="Fill factors below the set level will be deleted"/>
                         <TextBox x:Name="ff_min_box" Grid.Column="1" Grid.Row="2" Text="0.0"/>
+                        <TextBlock Text="Maximum Jsc tolerable (mA/cm2)" Grid.Column="0" Grid.Row="3" ToolTip="At low light levels, fill factor becomes difficult to calculate, leading to nonsense FF data at night. &#x0a;When JSC is below the given threshold, FF data will be deleted"/>
+                        <TextBox x:Name="jsc_max_box" Grid.Column="1" Grid.Row="3" Text="100"/>
+
                     </Grid>
 
                     <Button x:Name="parseButton" Margin="0,5,0,0" Height="24" Click="ParseButton_Click"  Content="Clean up data" IsEnabled="False"/>

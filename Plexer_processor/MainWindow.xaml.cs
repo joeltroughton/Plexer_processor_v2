@@ -67,6 +67,7 @@ namespace Plexer_processor
 
         float minimumFF;
         float jscCutOff;
+        float jscMax;
 
         int totalLines = 0;
 
@@ -116,6 +117,7 @@ namespace Plexer_processor
         {
             minimumFF = float.Parse(ff_min_box.Text);
             jscCutOff = float.Parse(jsc_min_box.Text);
+            jscMax = float.Parse(jsc_max_box.Text);
             intervalMins = int.Parse(interval_min_box.Text);
 
             output_box.AppendText(String.Format("\nBeginning processing") + Environment.NewLine);
@@ -197,6 +199,11 @@ namespace Plexer_processor
                             if ((scan.jsc < jscCutOff) || (scan.ff < minimumFF) || (scan.ff > 1))
                             {
                                 scan.ff = 0;
+                            }
+
+                            if (scan.jsc > jscMax)
+                            {
+                                scan.jsc = 0;
                             }
 
                             if (scan.voc < 0)
